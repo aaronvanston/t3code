@@ -290,11 +290,26 @@ export function ThemeAppearanceSection() {
     setThemeMode,
     themeIds,
     themeMode,
+    materialYouStyleLayoutEnabled,
+    setMaterialYouStyleLayoutEnabled,
     systemColorsAvailable,
   } = useAppearancePreferences();
 
   return (
     <View className="gap-6">
+      {Platform.OS === "android" ? (
+        <SettingsSection card title="Android">
+          <View className="mx-4 h-px bg-separator" />
+          <SettingsSwitchRow
+            disabled={!isReady}
+            icon="rectangle.3.group"
+            label="Material You Style Layout"
+            onValueChange={setMaterialYouStyleLayoutEnabled}
+            subtitle="Use Material You surfaces, shapes, and component styling."
+            value={materialYouStyleLayoutEnabled}
+          />
+        </SettingsSection>
+      ) : null}
       <View className="gap-2">
         <SectionLabel>Color scheme</SectionLabel>
         <View accessibilityRole="radiogroup" className="flex-row gap-2">
