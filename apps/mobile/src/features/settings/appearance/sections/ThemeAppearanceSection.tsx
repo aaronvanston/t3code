@@ -1,7 +1,7 @@
 import { memo, useId } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
-import { ScopedTheme } from "uniwind";
+import { ScopedTheme, ScopedVariables } from "uniwind";
 
 import { mixThemePreviewBase, THEME_PREVIEW_RENDER_SPECS } from "@t3tools/shared/themePreview";
 
@@ -18,6 +18,9 @@ import {
 import { getMobileUniwindThemeName } from "../../../../lib/mobileThemeRuntime";
 import { cn } from "../../../../lib/cn";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
+
+import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSwitchRow } from "../../components/SettingsSwitchRow";
 
 const APPEARANCE_MODES: ReadonlyArray<{
   readonly id: MobileThemeMode;
@@ -204,15 +207,20 @@ function PreviewPane(props: { readonly compact?: boolean }) {
 }
 
 function ModePreview(props: { readonly mode: MobileThemeMode; readonly themeIds: MobileThemeIds }) {
+  const { themeVariablesByAppearance } = useAppearancePreferences();
   if (props.mode === "system") {
     return (
       <View className="h-24 w-14 self-center rounded-[16px] border-[1.5px] border-border bg-drawer p-[3px]">
         <View className="flex-1 flex-row overflow-hidden rounded-[11px]">
           <ScopedTheme theme={getMobileUniwindThemeName(props.themeIds.light, "light")}>
-            <PreviewPane compact />
+            <ScopedVariables variables={themeVariablesByAppearance.light}>
+              <PreviewPane compact />
+            </ScopedVariables>
           </ScopedTheme>
           <ScopedTheme theme={getMobileUniwindThemeName(props.themeIds.dark, "dark")}>
-            <PreviewPane compact />
+            <ScopedVariables variables={themeVariablesByAppearance.dark}>
+              <PreviewPane compact />
+            </ScopedVariables>
           </ScopedTheme>
         </View>
         <View className="absolute bottom-[6px] left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-foreground-muted" />
@@ -224,7 +232,9 @@ function ModePreview(props: { readonly mode: MobileThemeMode; readonly themeIds:
     <ScopedTheme theme={getMobileUniwindThemeName(props.themeIds[props.mode], props.mode)}>
       <View className="h-24 w-14 self-center rounded-[16px] border-[1.5px] border-border bg-drawer p-[3px]">
         <View className="flex-1 flex-row overflow-hidden rounded-[11px]">
-          <PreviewPane />
+          <ScopedVariables variables={themeVariablesByAppearance[props.mode]}>
+            <PreviewPane />
+          </ScopedVariables>
         </View>
         <View className="absolute bottom-[6px] left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-foreground-muted" />
       </View>
@@ -278,10 +288,29 @@ export function ThemeAppearanceSection() {
     setThemeMode,
     themeIds,
     themeMode,
+    systemColorsAvailable,
+    systemColorsEnabled,
+    setSystemColorsEnabled,
   } = useAppearancePreferences();
 
   return (
     <View className="gap-6">
+      {Platform.OS === "android" ? (
+        <SettingsSection card title="Android">
+          <SettingsSwitchRow
+            disabled={!isReady || !systemColorsAvailable}
+            icon="paintbrush"
+            label="System Colors"
+            onValueChange={setSystemColorsEnabled}
+            subtitle={
+              systemColorsAvailable
+                ? "Use Material You colors from your wallpaper."
+                : "Requires Android 12 or newer."
+            }
+            value={systemColorsAvailable && systemColorsEnabled}
+          />
+        </SettingsSection>
+      ) : null}
       <View className="gap-2">
         <SectionLabel>Color scheme</SectionLabel>
         <View accessibilityRole="radiogroup" className="flex-row gap-2">
