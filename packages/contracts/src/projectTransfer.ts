@@ -64,7 +64,7 @@ export const ProjectTransferResult = Schema.Union([
 ]);
 export type ProjectTransferResult = typeof ProjectTransferResult.Type;
 
-export class ProjectTransferError extends Schema.TaggedErrorClass<ProjectTransferError>()(
+export class ProjectTransferError extends Schema.TaggedError<ProjectTransferError>()(
   "ProjectTransferError",
   { message: Schema.String },
 ) {}
