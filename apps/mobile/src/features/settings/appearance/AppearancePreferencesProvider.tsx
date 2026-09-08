@@ -249,7 +249,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       if (value) setSystemColorPalettes(readSystemColorPalettes());
       updateThemePreferences({ systemColorsEnabled: value });
     },
-    [updateThemePreferences],
+    [setSystemColorPalettes, updateThemePreferences],
   );
 
   const setBaseFontSize = useCallback(
