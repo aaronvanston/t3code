@@ -302,8 +302,8 @@ export function ThemeAppearanceSection() {
           <View className="mx-4 h-px bg-separator" />
           <SettingsSwitchRow
             disabled={!isReady}
-            icon="rectangle.3.group"
-            label="Material You Style Layout"
+            icon="square.grid.2x2"
+            label="Material You Layout"
             onValueChange={setMaterialYouStyleLayoutEnabled}
             subtitle="Use Material You surfaces, shapes, and component styling."
             value={materialYouStyleLayoutEnabled}
