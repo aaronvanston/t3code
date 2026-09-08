@@ -1,3 +1,6 @@
+import { getCloneDestinationPath } from "@t3tools/client-runtime/operations/projects";
+import { getBrowseDirectoryPath, getBrowseLeafPathSegment } from "../../lib/projectPaths";
+import { DirectoryPicker } from "../DirectoryPicker";
 import { useRef, useState } from "react";
 import { copyProjectToEnvironment } from "@t3tools/client-runtime/state/projects";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
@@ -38,6 +41,7 @@ export function ProjectTransferDialog({
   const [pickedTarget, setTarget] = useState<EnvironmentId | "">(destinationId ?? "");
   const target = destinationId ?? pickedTarget;
   const [destinationPath, setDestinationPath] = useState("");
+  const [browsing, setBrowsing] = useState(false);
   const [mode, setMode] = useState<ProjectTransferMode>(
     sources[0]?.repositoryIdentity ? "clone" : "copy",
   );
@@ -224,15 +228,25 @@ export function ProjectTransferDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="transfer-path">Destination folder</Label>
-              <Input
-                id="transfer-path"
-                value={destinationPath}
-                disabled={busy}
-                placeholder="~/code/my-project"
-                onChange={(event) => setDestinationPath(event.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  className="min-w-0 flex-1"
+                  id="transfer-path"
+                  value={destinationPath}
+                  disabled={busy}
+                  placeholder="~/code/my-project"
+                  onChange={(event) => setDestinationPath(event.target.value)}
+                />
+                <Button
+                  variant="outline"
+                  disabled={busy || !ready}
+                  onClick={() => setBrowsing(true)}
+                >
+                  Browse…
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Use a new folder inside an existing directory.
+                Browse for a parent folder, then name the new folder in the path above.
               </p>
             </div>
             <fieldset className="space-y-3">
@@ -309,6 +323,29 @@ export function ProjectTransferDialog({
               Copy project
             </Button>
           </DialogFooter>
+          {browsing && target && (
+            <DirectoryPicker
+              key={target}
+              environmentId={target}
+              platform={
+                environments.find((item) => item.environmentId === target)?.serverConfig
+                  ?.environment.platform.os ?? ""
+              }
+              initialPath={
+                destinationPath.trim() ? getBrowseDirectoryPath(destinationPath.trim()) : "~/"
+              }
+              label={`Choose parent folder on ${machineLabel(target)}`}
+              onClose={() => setBrowsing(false)}
+              onSelect={(parentPath) => {
+                const name =
+                  getBrowseLeafPathSegment(destinationPath.trim()) ||
+                  getBrowseLeafPathSegment(source?.workspaceRoot ?? "") ||
+                  "project";
+                setDestinationPath(getCloneDestinationPath(parentPath, name));
+                setBrowsing(false);
+              }}
+            />
+          )}
         </DialogPopup>
       </Dialog>
     </>
