@@ -213,6 +213,7 @@ export const make = Effect.gen(function* () {
     serverVersion: packageJson.version,
     capabilities: {
       repositoryIdentity: true,
+      projectTransfer: true,
       connectionProbe: true,
       attachmentUploads: true,
       fileAttachments: { maxUploadBytes: PROVIDER_SEND_TURN_MAX_FILE_BYTES },
