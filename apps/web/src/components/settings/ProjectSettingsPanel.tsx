@@ -229,25 +229,31 @@ export function ProjectSettingsPanel({
         }
       : null;
   return (
-    <div>
-      <div className="px-8 pt-4">
-        <ProjectTransferDialog
-          sources={selected.memberProjects}
-          destinationId={members.length === 0 ? (environmentId ?? undefined) : undefined}
+    <SettingsPageContainer className="gap-6">
+      <SettingsSection title="Machines" hideTitle>
+        <SettingsRow
+          title={scopedGroup ? "Copy project" : "No checkout on this machine"}
+          description={
+            scopedGroup
+              ? "Set up this project on another machine."
+              : "Bring over a checkout and its settings from another machine."
+          }
+          control={
+            <ProjectTransferDialog
+              sources={selected.memberProjects}
+              destinationId={members.length === 0 ? (environmentId ?? undefined) : undefined}
+            />
+          }
         />
-      </div>
+      </SettingsSection>
       {scopedGroup ? (
         <ProjectDetail
           key={`${selected.projectKey}:${environmentId ?? "all"}`}
           group={scopedGroup}
           hasOtherMembers={members.length < selected.memberProjects.length}
         />
-      ) : (
-        <p className="p-8 text-sm text-muted-foreground">
-          This project has no checkout on this machine.
-        </p>
-      )}
-    </div>
+      ) : null}
+    </SettingsPageContainer>
   );
 }
 
@@ -918,7 +924,7 @@ function ProjectDetail({
 
   return (
     <>
-      <SettingsPageContainer className="gap-6">
+      <>
         <SettingsSection title="Project" hideTitle>
           <SettingsRow
             title="Name"
@@ -1415,7 +1421,7 @@ function ProjectDetail({
             }
           />
         </SettingsSection>
-      </SettingsPageContainer>
+      </>
 
       <ProjectScriptEditorDialog
         request={editorRequest}

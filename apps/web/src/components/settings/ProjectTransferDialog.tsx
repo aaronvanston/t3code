@@ -7,6 +7,10 @@ import { useEnvironments } from "../../state/environments";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
+import { Label } from "../ui/label";
+import { Radio, RadioGroup } from "../ui/radio-group";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
 import { Input } from "../ui/input";
 import {
   Dialog,
@@ -15,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogPanel,
 } from "../ui/dialog";
 import { toastManager } from "../ui/toast";
 
@@ -54,7 +59,15 @@ export function ProjectTransferDialog({
     source.environmentId !== target &&
     supported(source.environmentId) &&
     supported(target);
-  const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+  const machineLabel = (id: EnvironmentId) => {
+    const environment = environments.find((item) => item.environmentId === id);
+    if (!environment) return "Machine";
+    return environments.some(
+      (item) => item.environmentId !== id && item.label === environment.label,
+    )
+      ? `${environment.label} · ${environment.displayUrl ?? id}`
+      : environment.label;
+  };
 
   async function start() {
     if (!source || !target || !ready || controller.current) return;
@@ -80,12 +93,13 @@ export function ProjectTransferDialog({
       toastManager.add({ type: "success", title: "Project copied", description: result.cwd });
       setOpen(false);
     } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
       setError(
         abort.signal.aborted
           ? "Copy cancelled."
-          : cause instanceof Error
-            ? cause.message
-            : String(cause),
+          : message.includes("EEXIST")
+            ? "That destination folder already exists. Choose a new folder and try again."
+            : message,
       );
     } finally {
       controller.current = null;
@@ -95,7 +109,14 @@ export function ProjectTransferDialog({
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      >
         {destinationId ? "Copy from another machine" : "Copy to another machine"}
       </Button>
       <Dialog
@@ -112,109 +133,134 @@ export function ProjectTransferDialog({
               intact.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <label className="block space-y-1 text-sm">
-              Source checkout
-              <select
-                className={selectClass}
+          <DialogPanel className="space-y-5">
+            <div className="grid gap-1.5">
+              <Label htmlFor="transfer-source">Source checkout</Label>
+              <Select
                 disabled={busy}
                 value={source?.physicalProjectKey ?? ""}
-                onChange={(event) => setSourceKey(event.target.value)}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  setSourceKey(value);
+                  const next = sources.find((item) => item.physicalProjectKey === value);
+                  if (!next?.repositoryIdentity) setMode("copy");
+                  if (next?.environmentId === target) setTarget("");
+                }}
               >
-                {sources.map((item) => (
-                  <option key={item.physicalProjectKey} value={item.physicalProjectKey}>
-                    {item.environmentLabel ?? "Machine"} · {item.workspaceRoot}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1 text-sm">
-              Destination machine
-              <select
-                className={selectClass}
-                disabled={busy || destinationId !== undefined}
-                value={target}
-                onChange={(event) => setTarget(event.target.value as EnvironmentId)}
-              >
-                <option value="">Choose a machine</option>
-                {environments
-                  .filter((item) => item.environmentId !== source?.environmentId)
-                  .map((item) => (
-                    <option key={item.environmentId} value={item.environmentId}>
-                      {item.label}
-                    </option>
+                <SelectTrigger id="transfer-source">
+                  <SelectValue>
+                    {source ? machineLabel(source.environmentId) : "Choose a checkout"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {sources.map((item) => (
+                    <SelectItem key={item.physicalProjectKey} value={item.physicalProjectKey}>
+                      <span className="min-w-0">
+                        <span className="block">{machineLabel(item.environmentId)}</span>
+                        <span className="block break-all text-xs text-muted-foreground">
+                          {item.workspaceRoot}
+                        </span>
+                      </span>
+                    </SelectItem>
                   ))}
-              </select>
-            </label>
-            {target && !ready && (
-              <p className="text-sm text-muted-foreground">
-                Both machines must be connected and running a build that supports project copying.
-              </p>
-            )}
-            <label className="block space-y-1 text-sm">
-              New folder on the destination
+                </SelectPopup>
+              </Select>
+              <p className="break-all text-xs text-muted-foreground">{source?.workspaceRoot}</p>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="transfer-target">Destination machine</Label>
+              <Select
+                disabled={busy || destinationId !== undefined}
+                value={target || null}
+                onValueChange={(value) => setTarget(value ?? "")}
+              >
+                <SelectTrigger id="transfer-target">
+                  <SelectValue placeholder="Choose a machine">
+                    {target ? machineLabel(target) : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {environments
+                    .filter((item) => item.environmentId !== source?.environmentId)
+                    .map((item) => (
+                      <SelectItem key={item.environmentId} value={item.environmentId}>
+                        {machineLabel(item.environmentId)}
+                      </SelectItem>
+                    ))}
+                </SelectPopup>
+              </Select>
+              {environments.every((item) => item.environmentId === source?.environmentId) && (
+                <p className="text-xs text-muted-foreground">
+                  Add another machine in Settings → Connections to copy this project.
+                </p>
+              )}
+              {target && !ready && (
+                <p className="text-xs text-muted-foreground">
+                  Connect both machines using a version of T3 Code that supports project copying.
+                </p>
+              )}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="transfer-path">Destination folder</Label>
               <Input
+                id="transfer-path"
                 value={destinationPath}
                 disabled={busy}
                 placeholder="~/code/my-project"
                 onChange={(event) => setDestinationPath(event.target.value)}
               />
-            </label>
-            <fieldset disabled={busy} className="space-y-3 text-sm">
-              <legend className="mb-2 font-medium">Files to copy</legend>
-              <label className="flex items-start gap-2">
-                <input
-                  type="radio"
-                  name="project-transfer-mode"
-                  checked={mode === "clone"}
-                  onChange={() => setMode("clone")}
-                  className="mt-1"
-                />
-                <span>
-                  Fresh checkout
-                  <span className="block text-muted-foreground">
-                    Clone the repository's default branch. Local changes and ignored files stay on
-                    the source.
+              <p className="text-xs text-muted-foreground">
+                Use a new folder inside an existing directory.
+              </p>
+            </div>
+            <fieldset className="space-y-3">
+              <legend className="mb-3 text-sm font-medium">Checkout</legend>
+              <RadioGroup
+                disabled={busy}
+                value={mode}
+                onValueChange={(value) => setMode(value as ProjectTransferMode)}
+              >
+                <label className="flex items-start gap-3 text-sm">
+                  <Radio value="clone" disabled={!source?.repositoryIdentity} className="mt-0.5" />
+                  <span>
+                    Fresh checkout
+                    <span className="block text-xs leading-relaxed text-muted-foreground">
+                      {source?.repositoryIdentity
+                        ? "Clone the default branch without local changes."
+                        : "Requires a Git repository with a remote."}
+                    </span>
                   </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2">
-                <input
-                  type="radio"
-                  name="project-transfer-mode"
-                  checked={mode === "copy"}
-                  onChange={() => setMode("copy")}
-                  className="mt-1"
-                />
-                <span>
-                  One-time copy
-                  <span className="block text-muted-foreground">
-                    Copy the current files, Git history and uncommitted work. Pause edits while
-                    preparing the snapshot.
+                </label>
+                <label className="flex items-start gap-3 text-sm">
+                  <Radio value="copy" className="mt-0.5" />
+                  <span>
+                    One-time copy
+                    <span className="block text-xs leading-relaxed text-muted-foreground">
+                      Keep current files, Git history and uncommitted changes.
+                    </span>
                   </span>
-                </span>
-              </label>
+                </label>
+              </RadioGroup>
               {mode === "copy" && (
-                <label className="flex items-start gap-2 pl-5">
-                  <input
-                    type="checkbox"
+                <label className="flex items-start gap-3 text-sm">
+                  <Checkbox
+                    disabled={busy}
                     checked={includeIgnored}
-                    onChange={(event) => setIncludeIgnored(event.target.checked)}
-                    className="mt-1"
+                    onCheckedChange={setIncludeIgnored}
+                    className="mt-0.5"
                   />
                   <span>
                     Include ignored files
-                    <span className="block text-muted-foreground">
-                      Includes .env files and installed dependencies, which may need reinstalling on
-                      a different OS.
+                    <span className="block text-xs leading-relaxed text-muted-foreground">
+                      Includes .env and dependencies. Pause edits during the copy (up to 10 GB).
                     </span>
                   </span>
                 </label>
               )}
             </fieldset>
             <p className="text-xs text-muted-foreground">
-              Conversations and machine-level provider credentials stay on the source. Existing
-              folders are never overwritten. One-time copies support up to 10 GB.
+              Project settings and actions are included. Conversations and provider credentials stay
+              on the source.
             </p>
             {progress && (
               <p role="status" className="text-sm">
@@ -222,11 +268,11 @@ export function ProjectTransferDialog({
               </p>
             )}
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="break-words text-sm text-destructive">
                 {error}
               </p>
             )}
-          </div>
+          </DialogPanel>
           <DialogFooter>
             <Button
               variant="ghost"
