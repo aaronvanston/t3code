@@ -38,6 +38,7 @@ it.effect("stores only a token hash, resolves the bearer token, and revokes by t
     const threadId = ThreadId.make("thread-1");
     const issued = yield* registry.issue({
       threadId,
+      capabilities: new Set(["preview"]),
       providerInstanceId: ProviderInstanceId.make("codex"),
     });
     expect(issued.config.endpoint).toBe("http://127.0.0.1:43123/mcp");
@@ -67,6 +68,7 @@ it.effect("builds MCP endpoints from the bound server host", () =>
       const registry = yield* makeRegistry(() => 1_000, makeFakeHttpServer(hostname));
       const issued = yield* registry.issue({
         threadId: ThreadId.make(`thread-${hostname}`),
+        capabilities: new Set(["preview"]),
         providerInstanceId: ProviderInstanceId.make("codex"),
       });
       expect(issued.config.endpoint).toBe(expectedEndpoint);
@@ -80,6 +82,7 @@ it.effect("expires credentials once their session stops showing signs of life", 
     const registry = yield* makeRegistry(() => timestamp);
     const issued = yield* registry.issue({
       threadId: ThreadId.make("thread-2"),
+      capabilities: new Set(["preview"]),
       providerInstanceId: ProviderInstanceId.make("claude"),
     });
     const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");
@@ -95,6 +98,7 @@ it.effect("keeps a credential alive across turns that never touch an MCP tool", 
     const threadId = ThreadId.make("thread-3");
     const issued = yield* registry.issue({
       threadId,
+      capabilities: new Set(["preview"]),
       providerInstanceId: ProviderInstanceId.make("claude"),
     });
     const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");
@@ -116,6 +120,7 @@ it.effect("does not keep credentials of other threads alive", () =>
     const registry = yield* makeRegistry(() => timestamp);
     const issued = yield* registry.issue({
       threadId: ThreadId.make("thread-4"),
+      capabilities: new Set(["preview"]),
       providerInstanceId: ProviderInstanceId.make("codex"),
     });
     const token = issued.config.authorizationHeader.replace(/^Bearer\s+/, "");

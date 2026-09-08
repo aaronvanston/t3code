@@ -34,6 +34,7 @@ import {
   type ProviderSession,
 } from "@t3tools/contracts";
 import { expandAssistantCitationsForProvider } from "@t3tools/shared/assistantCitations";
+import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import { causeErrorTag } from "@t3tools/shared/observability";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { resolveProjectAgentBrowserAccess } from "@t3tools/shared/serverSettings";
@@ -43,6 +44,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
@@ -51,6 +53,9 @@ import * as Stream from "effect/Stream";
 
 import { resolveAttachmentPath } from "../../attachmentStore.ts";
 import * as ServerConfig from "../../config.ts";
+import { ensureAgentDeviceShim } from "../../device/AgentDeviceShim.ts";
+import * as DeviceService from "../../device/DeviceService.ts";
+import type * as McpInvocationContext from "../../mcp/McpInvocationContext.ts";
 import {
   increment,
   providerMetricAttributes,
@@ -250,6 +255,8 @@ export interface ProviderServiceLiveOptions {
   readonly issueMcpCredential?: typeof McpSessionRegistry.issueActiveMcpCredential;
   /** Same seam as `issueMcpCredential`, for observing the deny path's revoke. */
   readonly revokeMcpCredential?: typeof McpSessionRegistry.revokeActiveMcpThread;
+  /** Overrides the device host lookup used to build the agent-device environment. */
+  readonly deviceReadiness?: () => Effect.Effect<DeviceService.DeviceReadiness | null>;
 }
 
 interface TurnAnalyticsMetadata {
@@ -480,7 +487,16 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     options?.issueMcpCredential ?? McpSessionRegistry.issueActiveMcpCredential;
   const revokeMcpCredential =
     options?.revokeMcpCredential ?? McpSessionRegistry.revokeActiveMcpThread;
+  const deviceReadiness =
+    options?.deviceReadiness ??
+    (() =>
+      Effect.serviceOption(DeviceService.DeviceService).pipe(
+        Effect.flatMap((service) =>
+          Option.isSome(service) ? service.value.currentReadiness() : Effect.succeed(null),
+        ),
+      ));
   const fileSystem = yield* FileSystem.FileSystem;
+  const pathService = yield* Path.Path;
   const runtimeEventPubSub = yield* PubSub.unbounded<ProviderRuntimeEvent>();
   const pendingCompactions = new Map<ThreadId, PendingCompaction>();
   const timedOutNativeCompactions = new Set<ThreadId>();
@@ -888,9 +904,56 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     ),
   );
 
+  const agentDeviceAccessEnabled = serverSettings.getSettings.pipe(
+    Effect.map((settings) => settings.enableAgentDeviceAccess),
+    Effect.catch((cause) =>
+      Effect.logWarning(
+        "Could not read server settings; withholding agent device access for this session.",
+        { cause },
+      ).pipe(Effect.as(false)),
+    ),
+  );
+
+  const agentAccessCapabilities = Effect.fn("ProviderService.agentAccessCapabilities")(
+    function* (threadId: ThreadId) {
+      const capabilities = new Set<McpInvocationContext.McpCapability>();
+      if (yield* agentBrowserAccessEnabled(threadId)) capabilities.add("preview");
+      if (yield* agentDeviceAccessEnabled) capabilities.add("device");
+      return capabilities;
+    },
+  );
+
+  /**
+   * The device host only starts when a device is first opened, so a session
+   * prepared before that gets the tools without the CLI environment; the
+   * `device_open` result tells the agent the CLI is ready, and by then the
+   * next session restart picks the environment up. Sessions prepared after
+   * the host is running get it immediately.
+   */
+  const hostPlatform = yield* HostProcessPlatform;
+  const agentDeviceEnvironment = Effect.gen(function* () {
+    const readiness = yield* deviceReadiness();
+    if (!readiness) return undefined;
+    const shimDir = yield* ensureAgentDeviceShim({
+      entryPath: readiness.agentDevice.entryPath,
+      stateDir: serverConfig.stateDir,
+      fs: fileSystem,
+      path: pathService,
+    }).pipe(Effect.orElseSucceed(() => undefined));
+    if (!shimDir) return undefined;
+    return {
+      PATH: shimDir,
+      PATH_SEPARATOR: hostPlatform === "win32" ? ";" : ":",
+      AGENT_DEVICE_DAEMON_BASE_URL: readiness.agentDevice.baseUrl,
+      AGENT_DEVICE_DAEMON_AUTH_TOKEN: readiness.agentDevice.token,
+      AGENT_DEVICE_NO_UPDATE_NOTIFIER: "1",
+    } satisfies Record<string, string>;
+  });
+
   const prepareMcpSession = (threadId: ThreadId, providerInstanceId: ProviderInstanceId) =>
     Effect.gen(function* () {
-      if (!(yield* agentBrowserAccessEnabled(threadId))) {
+      const capabilities = yield* agentAccessCapabilities(threadId);
+      if (capabilities.size === 0) {
         // Revoke as well as clear. Every other prepare path reaches
         // `issueActiveMcpCredential`, which revokes the thread first, so
         // skipping it here would leave a previously issued bearer token valid
@@ -901,9 +964,17 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
         yield* Effect.sync(() => McpProviderSession.clearMcpProviderSession(threadId));
         return undefined;
       }
-      const credential = yield* issueMcpCredential({ threadId, providerInstanceId });
+      const credential = yield* issueMcpCredential({ threadId, providerInstanceId, capabilities });
       if (credential) {
-        yield* Effect.sync(() => McpProviderSession.setMcpProviderSession(credential.config));
+        const deviceEnvironment = capabilities.has("device")
+          ? yield* agentDeviceEnvironment
+          : undefined;
+        yield* Effect.sync(() =>
+          McpProviderSession.setMcpProviderSession({
+            ...credential.config,
+            ...(deviceEnvironment ? { agentDeviceEnvironment: deviceEnvironment } : {}),
+          }),
+        );
       }
       return credential;
     });

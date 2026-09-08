@@ -7,7 +7,7 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 
-export type McpCapability = "preview";
+export type McpCapability = "preview" | "device";
 
 export interface McpInvocationScope {
   readonly environmentId: EnvironmentId;
@@ -28,8 +28,11 @@ export const requireMcpCapability = Effect.fn("mcp.requireCapability")(function*
 ) {
   const invocation = yield* McpInvocationContext;
   if (!invocation.capabilities.has(capability)) {
+    // The error shape predates the second capability; "preview" is the
+    // wire-compatible tag, and device handlers remap it before it reaches
+    // the agent.
     return yield* new PreviewAutomationUnavailableError({
-      capability,
+      capability: "preview",
       environmentId: invocation.environmentId,
       threadId: invocation.threadId,
       providerSessionId: invocation.providerSessionId,
