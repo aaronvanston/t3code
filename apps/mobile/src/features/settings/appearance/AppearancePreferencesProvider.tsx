@@ -100,8 +100,12 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   const [systemColorPalettes, setSystemColorPalettes] = useState(readSystemColorPalettes);
   useEffect(() => {
     if (!systemColorsActive) return;
-    const refresh = () => setSystemColorPalettes(readSystemColorPalettes());
-    refresh();
+    const refresh = () => {
+      const next = readSystemColorPalettes();
+      setSystemColorPalettes((previous) =>
+        JSON.stringify(previous) === JSON.stringify(next) ? previous : next,
+      );
+    };
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") refresh();
     });
@@ -241,7 +245,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
   );
 
   const setSystemColorsEnabled = useCallback(
-    (value: boolean) => updateThemePreferences({ systemColorsEnabled: value }),
+    (value: boolean) => {
+      if (value) setSystemColorPalettes(readSystemColorPalettes());
+      updateThemePreferences({ systemColorsEnabled: value });
+    },
     [updateThemePreferences],
   );
 
