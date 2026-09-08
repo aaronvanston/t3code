@@ -7,8 +7,9 @@ within each theme. Appearance preferences are saved separately on each device or
 Mobile has its own themes and text, code, and terminal preferences. It does not follow environment
 themes or defaults.
 
-On Android 12 or newer, enable **System Colors** in Appearance to use Material You colors from
-your wallpaper. Turn it off to return to your saved themes.
+On Android 12 or newer, choose the **Material You** theme in Appearance to use colors from
+your wallpaper. Selecting another theme replaces those colors. Like other themes, Material You
+can be selected separately for light and dark appearances.
 
 ## Motion
 

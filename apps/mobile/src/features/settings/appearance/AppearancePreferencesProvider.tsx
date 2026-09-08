@@ -52,13 +52,12 @@ interface AppearancePreferencesContextValue {
   readonly themeMode: MobileThemeMode;
   readonly themeAppearance: MobileThemeAppearance;
   readonly systemColorsAvailable: boolean;
-  readonly systemColorsEnabled: boolean;
   readonly systemColorsActive: boolean;
   readonly themeVariables: MobileThemeVariables;
   readonly themeVariablesByAppearance: Readonly<
     Record<MobileThemeAppearance, MobileThemeVariables>
   >;
-  readonly setSystemColorsEnabled: (value: boolean) => void;
+  readonly systemColorPalettes: ReturnType<typeof readSystemColorPalettes>;
   readonly isReady: boolean;
   readonly setThemeIdForAppearance: (
     appearance: MobileThemeAppearance,
@@ -95,11 +94,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [resolvedThemeIds.dark, resolvedThemeIds.light],
   );
   const themeId = themeIds[themeAppearance];
-  const systemColorsEnabled = storedPreferences?.systemColorsEnabled ?? false;
-  const systemColorsActive = systemColorsEnabled && isSystemColorsAvailable;
+  const systemColorsActive = themeId === "material-you" && isSystemColorsAvailable;
   const [systemColorPalettes, setSystemColorPalettes] = useState(readSystemColorPalettes);
   useEffect(() => {
-    if (!systemColorsActive) return;
+    if (!isSystemColorsAvailable) return;
     const refresh = () => {
       const next = readSystemColorPalettes();
       setSystemColorPalettes((previous) =>
@@ -114,11 +112,11 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       subscription.remove();
       focusSubscription.remove();
     };
-  }, [systemColorsActive]);
+  }, []);
   const themeVariablesByAppearance = useMemo(() => {
     const resolve = (appearance: MobileThemeAppearance) => {
       const base = getMobileThemeRuntimeVariables(themeIds[appearance], appearance);
-      return systemColorsActive && systemColorPalettes
+      return themeIds[appearance] === "material-you" && systemColorPalettes
         ? materialYouPaletteToMobileThemeVariables(
             systemColorPalettes[appearance],
             appearance,
@@ -127,7 +125,7 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
         : base;
     };
     return { light: resolve("light"), dark: resolve("dark") };
-  }, [themeIds, systemColorsActive, systemColorPalettes]);
+  }, [themeIds, systemColorPalettes]);
   const themeVariables = themeVariablesByAppearance[themeAppearance];
   const activeThemeName = getMobileUniwindThemeName(themeId, themeAppearance);
   const { baseFontSize, codeFontSize, codeWordBreak, terminalFontSize } = preferences;
@@ -244,14 +242,6 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
     [runtimeState, syncThemeRuntime, updateThemePreferences],
   );
 
-  const setSystemColorsEnabled = useCallback(
-    (value: boolean) => {
-      if (value) setSystemColorPalettes(readSystemColorPalettes());
-      updateThemePreferences({ systemColorsEnabled: value });
-    },
-    [setSystemColorPalettes, updateThemePreferences],
-  );
-
   const setBaseFontSize = useCallback(
     (value: number) => {
       const current = appliedRuntimeStateRef.current ?? runtimeState;
@@ -290,11 +280,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeMode,
       themeAppearance,
       systemColorsAvailable: isSystemColorsAvailable,
-      systemColorsEnabled,
       systemColorsActive,
       themeVariables,
       themeVariablesByAppearance,
-      setSystemColorsEnabled,
+      systemColorPalettes,
       isReady,
       setThemeIdForAppearance,
       setThemeIdForBothAppearances,
@@ -310,11 +299,10 @@ export function AppearancePreferencesProvider(props: { readonly children: ReactN
       themeIds,
       themeMode,
       themeAppearance,
-      systemColorsEnabled,
       systemColorsActive,
       themeVariables,
       themeVariablesByAppearance,
-      setSystemColorsEnabled,
+      systemColorPalettes,
       isReady,
       setThemeIdForAppearance,
       setThemeIdForBothAppearances,

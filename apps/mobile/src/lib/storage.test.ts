@@ -196,13 +196,12 @@ describe("mobile connection storage", () => {
     });
   });
 
-  it("keeps saved themes when system colors are enabled and disabled", async () => {
-    const themes = { lightThemeId: "iris", darkThemeId: "ocean" } as const;
+  it("persists Material You independently for each appearance", async () => {
+    const themes = { lightThemeId: "material-you", darkThemeId: "ocean" } as const;
     await savePreferencesPatch(themes);
-    await savePreferencesPatch({ systemColorsEnabled: true });
-    await expect(loadPreferences()).resolves.toEqual({ ...themes, systemColorsEnabled: true });
-    await savePreferencesPatch({ systemColorsEnabled: false });
-    await expect(loadPreferences()).resolves.toEqual({ ...themes, systemColorsEnabled: false });
+    await expect(loadPreferences()).resolves.toEqual(themes);
+    await savePreferencesPatch({ lightThemeId: "t3-chat" });
+    await expect(loadPreferences()).resolves.toEqual({ ...themes, lightThemeId: "t3-chat" });
   });
 
   it("drops the removed theme transition preference", async () => {
