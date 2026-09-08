@@ -21,6 +21,8 @@ import {
   DialogFooter,
   DialogPanel,
 } from "../ui/dialog";
+import { SettingsRow, SettingsSection } from "./settingsLayout";
+import { projectTransferTargets } from "./projectTransferTargets";
 import { toastManager } from "../ui/toast";
 
 export function ProjectTransferDialog({
@@ -53,12 +55,18 @@ export function ProjectTransferDialog({
       environment.serverConfig?.environment.capabilities.projectTransfer === true
     );
   };
+  const destinations = projectTransferTargets(environments, sources);
+  const canCopy =
+    sources.some((item) => supported(item.environmentId)) &&
+    (destinationId
+      ? destinations.some((item) => item.environmentId === destinationId)
+      : destinations.length > 0);
   const ready =
     source &&
     target &&
     source.environmentId !== target &&
     supported(source.environmentId) &&
-    supported(target);
+    destinations.some((item) => item.environmentId === target);
   const machineLabel = (id: EnvironmentId) => {
     const environment = environments.find((item) => item.environmentId === id);
     if (!environment) return "Machine";
@@ -109,16 +117,37 @@ export function ProjectTransferDialog({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => {
-          setError(null);
-          setOpen(true);
-        }}
-      >
-        {destinationId ? "Copy from another machine" : "Copy to another machine"}
-      </Button>
+      {(canCopy || destinationId) && (
+        <SettingsSection title="Machines" hideTitle>
+          <SettingsRow
+            title={destinationId ? "No checkout on this machine" : "Copy project"}
+            description={
+              destinationId
+                ? "Bring over a checkout and its settings from another machine."
+                : "Set up this project on another machine."
+            }
+            status={
+              !canCopy
+                ? "Connect both machines using a version of T3 Code that supports project copying."
+                : undefined
+            }
+            control={
+              canCopy ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setError(null);
+                    setOpen(true);
+                  }}
+                >
+                  {destinationId ? "Copy from another machine" : "Copy to another machine"}
+                </Button>
+              ) : undefined
+            }
+          />
+        </SettingsSection>
+      )}
       <Dialog
         open={open}
         onOpenChange={(value) => {
@@ -180,20 +209,13 @@ export function ProjectTransferDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
-                  {environments
-                    .filter((item) => item.environmentId !== source?.environmentId)
-                    .map((item) => (
-                      <SelectItem key={item.environmentId} value={item.environmentId}>
-                        {machineLabel(item.environmentId)}
-                      </SelectItem>
-                    ))}
+                  {destinations.map((item) => (
+                    <SelectItem key={item.environmentId} value={item.environmentId}>
+                      {machineLabel(item.environmentId)}
+                    </SelectItem>
+                  ))}
                 </SelectPopup>
               </Select>
-              {environments.every((item) => item.environmentId === source?.environmentId) && (
-                <p className="text-xs text-muted-foreground">
-                  Add another machine in Settings → Connections to copy this project.
-                </p>
-              )}
               {target && !ready && (
                 <p className="text-xs text-muted-foreground">
                   Connect both machines using a version of T3 Code that supports project copying.

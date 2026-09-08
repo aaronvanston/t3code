@@ -230,22 +230,10 @@ export function ProjectSettingsPanel({
       : null;
   return (
     <SettingsPageContainer className="gap-6">
-      <SettingsSection title="Machines" hideTitle>
-        <SettingsRow
-          title={scopedGroup ? "Copy project" : "No checkout on this machine"}
-          description={
-            scopedGroup
-              ? "Set up this project on another machine."
-              : "Bring over a checkout and its settings from another machine."
-          }
-          control={
-            <ProjectTransferDialog
-              sources={selected.memberProjects}
-              destinationId={members.length === 0 ? (environmentId ?? undefined) : undefined}
-            />
-          }
-        />
-      </SettingsSection>
+      <ProjectTransferDialog
+        sources={selected.memberProjects}
+        destinationId={members.length === 0 ? (environmentId ?? undefined) : undefined}
+      />
       {scopedGroup ? (
         <ProjectDetail
           key={`${selected.projectKey}:${environmentId ?? "all"}`}
