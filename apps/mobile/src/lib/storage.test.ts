@@ -205,7 +205,10 @@ describe("mobile connection storage", () => {
   });
 
   it("persists the Material You layout independently of the selected theme", async () => {
-    await savePreferencesPatch({ lightThemeId: "material-you", materialYouStyleLayoutEnabled: true });
+    await savePreferencesPatch({
+      lightThemeId: "material-you",
+      materialYouStyleLayoutEnabled: true,
+    });
     await savePreferencesPatch({ lightThemeId: "t3-chat" });
     await expect(loadPreferences()).resolves.toEqual({
       lightThemeId: "t3-chat",
