@@ -36,10 +36,10 @@ local work, resolve it yourself before automatic pulls can resume.
 
 ## Copy a project to another machine
 
-Select a project in **Settings → Projects**, then choose **Copy from another machine**.
-The same action appears when the selected machine has no checkout of that project.
-Choose a source checkout, a connected destination machine, and a new folder whose parent already exists.
-Both servers must support project copying.
+In the web or desktop app, select a project in **Settings → Projects**. The copy action is available
+when another connected machine has no checkout of that project and both servers support project copying.
+Choose a source checkout, a destination machine, and a new folder. Browse the destination machine to
+choose an existing parent folder, or enter the new folder path directly.
 
 **Fresh checkout** clones the repository's default branch from its origin remote using the destination's
 Git credentials. **One-time copy** transfers the current files, Git history, staged and unstaged work.
