@@ -1,5 +1,5 @@
 import { memo, useId } from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { ScopedTheme, ScopedVariables } from "uniwind";
 
@@ -18,6 +18,9 @@ import {
 import { getMobileUniwindThemeName } from "../../../../lib/mobileThemeRuntime";
 import { cn } from "../../../../lib/cn";
 import { useAppearancePreferences } from "../AppearancePreferencesProvider";
+
+import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSwitchRow } from "../../components/SettingsSwitchRow";
 
 const APPEARANCE_MODES: ReadonlyArray<{
   readonly id: MobileThemeMode;
@@ -299,7 +302,6 @@ export function ThemeAppearanceSection() {
     <View className="gap-6">
       {Platform.OS === "android" ? (
         <SettingsSection card title="Android">
-          <View className="mx-4 h-px bg-separator" />
           <SettingsSwitchRow
             disabled={!isReady}
             icon="square.grid.2x2"
